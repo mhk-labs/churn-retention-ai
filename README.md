@@ -5,6 +5,11 @@ Predict subscription churn, explain model predictions, and support retention dec
 **Status: project skeleton.** No model has been trained, no real customer data is included,
 and no business impact has been measured. The runnable demo uses synthetic fixtures only.
 
+Exploration is available in [the EDA notebook](notebooks/01_eda.ipynb). It inspects
+KKBox sources and compares pre-cutoff customer history with supplied later outcomes.
+See [notebook setup](notebooks/README.md) and [the data folder map](data/README.md).
+The training, SHAP and LLM pipelines remain unimplemented.
+
 ## Start here
 
 Use Python 3.11 or 3.12. From a terminal:
@@ -61,5 +66,5 @@ The LLM will use supplied evidence and an approved action menu; it will not send
 ## Team
 
 Roles are unassigned. Choose owners together; each person reviews another person's PR.
-See the backlog for parallel starting points. Deployment, real data processing, model training,
+See the backlog for parallel starting points. Deployment, production data pipelines, model training,
 SHAP, budget simulation and an API-backed assistant are future work.
