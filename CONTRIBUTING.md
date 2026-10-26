@@ -1,7 +1,7 @@
 # Working together
 
 1. Pick one task from docs/BACKLOG.md and create a GitHub issue with an owner.
-2. Pull main and create a branch, e.g. `git switch -c feat/listening-features`.
+2. Pull main and create a branch, e.g. `git switch -c feature/listening-features`.
 3. Make one focused change, add meaningful tests, and update affected documentation.
 4. Run `python -m unittest discover -s tests -v` and `python -m churn_retention.demo`.
 5. Open a PR explaining the problem, change, validation and remaining limitations.
@@ -9,6 +9,13 @@
 
 A repository admin should configure main to require a PR, one approval and the
 offline-checks status. This skeleton does not configure or enforce branch protection.
+
+## Branch names
+
+Name branches for the work they contain: `feature/kkbox-eda` for new analysis or
+functionality, `fix/date-cutoff` for a correction, and `chore/dependency-update`
+for maintenance. Use short lowercase descriptions separated by hyphens. Each
+branch should produce a focused PR against `main`.
 
 ## Using Codex or Claude Code
 
