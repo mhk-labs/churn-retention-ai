@@ -1,4 +1,4 @@
-"""Stage the single source notebook for a private Kaggle upload; do not upload data."""
+"""Prepare notebook 01 for a private Kaggle upload; do not upload data."""
 
 import argparse
 import json

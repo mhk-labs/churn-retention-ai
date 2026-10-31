@@ -11,13 +11,13 @@ from pathlib import Path
 
 class KaggleStagingTests(unittest.TestCase):
     def test_only_clean_notebook_and_private_metadata_are_staged(self):
-        script = Path(__file__).resolve().parents[1] / "scripts" / "prepare_kaggle_eda.py"
+        script = Path(__file__).resolve().parents[1] / "churn_retention" / "kaggle.py"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "scripts").mkdir()
+            (root / "churn_retention").mkdir()
             (root / "notebooks").mkdir()
             (root / "data" / "raw").mkdir(parents=True)
-            shutil.copyfile(script, root / "scripts" / script.name)
+            shutil.copyfile(script, root / "churn_retention" / script.name)
             (root / "data" / "raw" / "customers.csv").write_text("customer_id\ndemo-001\n")
             (root / ".env").write_text("SYNTHETIC_SECRET=fixture-only\n")
             fixture = {
@@ -32,7 +32,7 @@ class KaggleStagingTests(unittest.TestCase):
             }
             (root / "notebooks" / "01_eda.ipynb").write_text(json.dumps(fixture))
             subprocess.run(
-                [sys.executable, str(root / "scripts" / script.name), "--owner", "demo-user"],
+                [sys.executable, str(root / "churn_retention" / script.name), "--owner", "demo-user"],
                 check=True, capture_output=True, text=True,
             )
             output = root / "data" / "processed" / "kaggle-eda"
