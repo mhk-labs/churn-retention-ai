@@ -1,6 +1,10 @@
 # Instructions for coding assistants
 
-Read README.md, docs/CONTRACTS.md and DECISIONS.md before changing the pipeline.
+Read README.md before changing the pipeline; it is the single project guide.
+Keep the project minimal: prefer fewer files, folders, dependencies and setup steps.
+Do not add separate guides, empty modules or speculative infrastructure.
+Keep explanations beside notebook code; put shared setup and decisions in README.md.
+Add a folder or abstraction only when current working code needs it.
 Keep changes focused on the requested task; preserve teammates' work.
 Use feature branches and reviewable pull requests.
 Prefer simple functions and explicit inputs/outputs over frameworks.

@@ -1,4 +1,4 @@
-"""Run from the repo root: python -m streamlit run app/streamlit_app.py."""
+"""Run from the repo root: python -m streamlit run churn_retention/app.py."""
 
 import streamlit as st
 
