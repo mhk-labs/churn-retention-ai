@@ -28,6 +28,9 @@ python -m pip install -e ".[notebooks]"
 5. Run [03_features.ipynb](notebooks/03_features.ipynb) to build the 20,000-customer
    feature prototype. It starts with a synthetic example and keeps supplied labels
    separate; label alignment must be verified before model training.
+6. Run [04_label_timeline.ipynb](notebooks/04_label_timeline.ipynb) to check which
+   expiry month each label file describes. It rebuilds labels with the provider's
+   rules from both transaction releases (about one minute with extracted CSVs).
 
 The first notebook streams the original listening archive, avoiding a 30 GB
 extraction. Building the sampled history previously took about 15–20 minutes on
@@ -42,7 +45,7 @@ library, available on this Mac and standard Kaggle runtimes.
 | `notebooks/` | EDA and feature notebooks, with explanations beside the code |
 | `data/raw/` | Original downloads and their provenance records |
 | `data/processed/` | Generated summaries, figures, extracted CSV cache and sampled history |
-| `churn_retention/` | Customer feature functions, synthetic demo and optional upload helper |
+| `churn_retention/` | Customer features, provider label rules, synthetic demo and optional upload helper |
 | `tests/` | Small synthetic checks that do not need competition data |
 
 Keep `data/processed/cohort_cache/` for the sampled listening history and manifest,
@@ -80,12 +83,12 @@ used only for profile checks, not the saved sample or customer-history features.
 
 | File in `data/raw/` (CSV or `.csv.7z`) | Current use |
 | --- | --- |
-| `train_v2.csv` | Supplied outcomes and customer pool: **970,960 customers**; select the EDA sample from these IDs |
+| `train_v2.csv` | Supplied outcomes for **March 2017 expiries** (notebook 04) and customer pool: **970,960 customers**; select the EDA sample from these IDs |
 | `transactions.csv` | Original subscription/payment events; summarise earlier events for the sampled customers |
 | `user_logs.csv` | Original listening history; retain earlier rows for those same customers |
 | `members_v3.csv` | Inspect profile quality; not yet joined into the customer comparison or used as predictors |
-| `train.csv` | Compare label releases; keep separate from `train_v2.csv` |
-| `transactions_v2.csv` | Inspect updated-source coverage/quality; excluded from current customer-history features |
+| `train.csv` | Supplied outcomes for **February 2017 expiries** (notebook 04); not used in the sample or model for now |
+| `transactions_v2.csv` | Adds March 2017 events (needed to rebuild labels in notebook 04) and ~290k earlier events missing from the original; excluded from current customer-history features |
 | `user_logs_v2.csv` | Inspect updated-source coverage/quality; excluded from current customer-history features |
 | `sample_submission_v2.csv` | Competition test-customer IDs and prediction-file template; not downloaded or used in the current prototype |
 | `sample_submission_zero.csv` | Older competition submission template; not used in the current prototype |
@@ -93,7 +96,7 @@ used only for profile checks, not the saved sample or customer-history features.
 The competition's submission files are separate from our 20,000-customer sample.
 Their prediction column is a placeholder to replace with model probabilities,
 not ground-truth labels. They must not be used as labelled training data.
-No local training/validation/test split has been created. Our 20,000-customer
+No local training/validation/test split has been created yet (see notebook 04). Our 20,000-customer
 sample is development input; March activity files are history, not a test set.
 
 For the current 1 March prototype, keep history strictly before 1 March. An
@@ -108,7 +111,7 @@ Use the supplied **`is_churn`** target: `1` means churn and `0` means renewal.
 defines churn around failure to renew within 30 days after expiry. The local
 provider reference, `data/raw/WSDMChurnLabeller.scala`, treats a renewal gap of
 **30 days or more** as churn and contains cancellation/tie-handling rules.
-We have not reproduced supplied labels or verified each release's outcome period.
+Notebook 04 reproduces these rules: most rebuilt labels match, but not every one.
 
 ## Sample or full data?
 
@@ -176,25 +179,33 @@ explicit predictor list in `churn_retention/features.py`. Do not drop customers
 merely because profiles/history are absent, or interpret unusual payment plans as
 errors without checking their meaning.
 
-**Still open before fitting a model:** verify which expiry/outcome period each
-label release represents, who was eligible at prediction time, and which fields
-were actually available then. The provider's example uses a 31 January history
-cutoff and February expiry candidates; it does not establish that our 1 March EDA
-cutoff is appropriate for `train_v2.csv`. A feature can precede our chosen cutoff
-yet already reveal part of its customer's outcome. A training label also needs
-its renewal-observation window to finish before the simulated model-fit date.
+**Label timeline (notebook 04).** Rebuilding labels with the provider's rules
+(`churn_retention/labels.py`) matches **`train.csv` to February 2017 expiries**
+(January history; kappa 0.84) and **`train_v2.csv` to March 2017 expiries**
+(February history; kappa 0.66). The March match is weaker partly because renewals
+can fall in April, after the data ends. Each file's prediction date is the start
+of its expiry month: **1 February for `train.csv`, 1 March for `train_v2.csv`**.
+Notebook 03's 1 March cutoff therefore fits `train_v2.csv`. Never use 1 March with
+`train.csv`: 94% of its customers already show their renewal in February.
 
-1. Resolve that timeline and choose training/validation/test cohorts. Do not
-   automatically use `train.csv` to train and `train_v2.csv` to test without
-   checking label maturity. Keep updated histories separate unless reconciliation
-   is needed for the agreed dates.
+**Decision: use `train_v2.csv` only.** The current 20,000-customer sample already
+comes from it, so no new sample is needed. Do not mix in `train.csv`: customers
+would appear twice with different dates and labels. Our sampled customers also
+under-represent February churners (1.7% versus 6.4% in the full file). Split the
+March cohort at random **by customer** into stratified training, validation and
+final test sets. This tests new customers in the same month, not a later month.
+A later-month check could use a fresh `train.csv` sample or rebuilt cohorts.
+**Still open:** whether features should add `transactions_v2.csv`'s extra
+pre-March events.
+
+1. Create the customer-level training/validation/test split (notebook 04 section 6).
 2. Review notebook 03's feature prototype: **one row per `(customer_id, prediction_date)`**,
    with labels separate. Its functions exclude events on or after the requested
    date and preserve unknown history. Supplied labels are saved with their source;
-   no outcome date or availability date is invented. Attach verified label periods
-   only after resolving step 1, and validate source availability before training.
-3. Train a logistic-regression baseline with mature labels and a justified time
-   split. Fit preprocessing on training data; reserve a final test set. Evaluate
+   no outcome date or availability date is invented. Validate source availability
+   before training.
+3. Train a logistic-regression baseline on the training customers; tune on
+   validation. Fit preprocessing on training data; reserve a final test set. Evaluate
    ranking, probability quality and precision/recall at an agreed contact budget.
 4. Compare LightGBM, then add explanations and retention support if useful.
    SHAP is not causal evidence; simulated value is not observed revenue saved.
