@@ -18,7 +18,9 @@ python -m pip install -e ".[notebooks]"
    with your own Kaggle account and accept its data terms.
 2. Download the seven source archives into `data/raw/`: `train`, `train_v2`,
    `members_v3`, `transactions`, `transactions_v2`, `user_logs` and `user_logs_v2`
-   (each named `*.csv.7z`). Extracted CSV inputs also work.
+   (each named `*.csv.7z`). Extracted CSV inputs also work. The ~7 GB `user_logs`
+   archive is only needed to rebuild the listening sample in notebook 01 (locally or
+   on Kaggle); notebooks 02–03 use the saved `cohort_cache/` instead.
 3. Open [01_eda.ipynb](notebooks/01_eda.ipynb) in VS Code, select the `.venv`
    Python kernel and run cells in order. Markdown explains each step.
 4. Run [02_eda_cache.ipynb](notebooks/02_eda_cache.ipynb) to inspect the listening
@@ -57,6 +59,8 @@ Notebook 03 section 5.2 compares each full source file's earliest/latest dates w
 the saved sample. The original downloads are unchanged; only the sample applies
 its customer/date filters. Keep `source_date_ranges.json` to avoid repeating the
 full-source date scans; deleting it requires another audit of the large archives.
+The full `user_logs.csv` range comes from the sample manifest: notebook 01 records
+it during the scan that builds the sample, so notebook 03 never rescans that file.
 For an older checkout, move existing `data/processed/eda/` contents up to
 `data/processed/` once; avoid overwriting files if both locations contain results.
 
