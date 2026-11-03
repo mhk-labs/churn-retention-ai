@@ -1,7 +1,8 @@
 # Churn Retention AI
 
 A three-person project exploring subscription churn with KKBox data using Python
-and pandas. **We are doing EDA. No model, SHAP or LLM pipeline is implemented.**
+and pandas. **EDA and a first feature prototype are available. No model, SHAP or
+LLM pipeline is implemented.**
 
 ## Start here
 
@@ -22,6 +23,9 @@ python -m pip install -e ".[notebooks]"
    Python kernel and run cells in order. Markdown explains each step.
 4. Run [02_eda_cache.ipynb](notebooks/02_eda_cache.ipynb) to inspect the listening
    distributions using notebook 01's cache and extracted labels.
+5. Run [03_features.ipynb](notebooks/03_features.ipynb) to build the 20,000-customer
+   feature prototype. It starts with a synthetic example and keeps supplied labels
+   separate; label alignment must be verified before model training.
 
 The first notebook streams the original listening archive, avoiding a 30 GB
 extraction. Building the sampled history previously took about 15–20 minutes on
@@ -33,10 +37,10 @@ library, available on this Mac and standard Kaggle runtimes.
 
 | Folder | What belongs here |
 | --- | --- |
-| `notebooks/` | EDA notebooks, with explanations beside the code |
+| `notebooks/` | EDA and feature notebooks, with explanations beside the code |
 | `data/raw/` | Original downloads and their provenance records |
 | `data/processed/` | Generated summaries, figures, extracted CSV cache and sampled history |
-| `churn_retention/` | Reusable Python code; currently the synthetic demo and optional upload helper |
+| `churn_retention/` | Customer feature functions, synthetic demo and optional upload helper |
 | `tests/` | Small synthetic checks that do not need competition data |
 
 Keep `data/processed/cohort_cache/` for the sampled listening history and manifest,
@@ -45,6 +49,14 @@ and an extracted `train_v2.csv` in `data/raw/` for notebook 02. Notebook 01 recr
 The optional upload helper recreates `kaggle-eda/`. These generated files can be
 deleted when no longer needed. Downloaded data and customer-level notebook outputs
 stay local/private and out of Git.
+Notebook 03 saves `customer_features.csv`, `supplied_labels_sample.csv` and
+`feature_metadata.json` directly under `data/processed/`. It streams original
+transactions without extracting another full CSV. Its metadata explicitly marks
+the output as **not ready for training** while label timing remains unverified.
+Notebook 03 section 5.2 compares each full source file's earliest/latest dates with
+the saved sample. The original downloads are unchanged; only the sample applies
+its customer/date filters. Keep `source_date_ranges.json` to avoid repeating the
+full-source date scans; deleting it requires another audit of the large archives.
 For an older checkout, move existing `data/processed/eda/` contents up to
 `data/processed/` once; avoid overwriting files if both locations contain results.
 
@@ -71,6 +83,20 @@ used only for profile checks, not the saved sample or customer-history features.
 | `train.csv` | Compare label releases; keep separate from `train_v2.csv` |
 | `transactions_v2.csv` | Inspect updated-source coverage/quality; excluded from current customer-history features |
 | `user_logs_v2.csv` | Inspect updated-source coverage/quality; excluded from current customer-history features |
+| `sample_submission_v2.csv` | Competition test-customer IDs and prediction-file template; not downloaded or used in the current prototype |
+| `sample_submission_zero.csv` | Older competition submission template; not used in the current prototype |
+
+The competition's submission files are separate from our 20,000-customer sample.
+Their prediction column is a placeholder to replace with model probabilities,
+not ground-truth labels. They must not be used as labelled training data.
+No local training/validation/test split has been created. Our 20,000-customer
+sample is development input; March activity files are history, not a test set.
+
+For the current 1 March prototype, keep history strictly before 1 March. An
+April prediction would move the cutoff to 1 April and could use March history
+for the appropriate target customers. Updated transaction releases overlap, so
+reconcile them before combining. This is a proposed forecast setup; the existing
+label-alignment and eligibility checks below still apply.
 
 Use the supplied **`is_churn`** target: `1` means churn and `0` means renewal.
 `is_cancel` describes a transaction event, not that target. The
@@ -140,10 +166,11 @@ Visible group differences are associations, not model metrics or causal evidence
 ## What is settled, and what comes next
 
 The file roles, target flag, reproducible development sample, history windows and
-missing-history distinction are settled for EDA. Keep the existing listening and
-renewal summaries as candidate features. Do not drop customers merely because
-profiles/history are absent, or interpret unusual payment plans as errors without
-checking their meaning.
+missing-history distinction are settled for the prototype. Notebook 03 uses 15
+candidate features from the existing listening and renewal summaries, with an
+explicit predictor list in `churn_retention/features.py`. Do not drop customers
+merely because profiles/history are absent, or interpret unusual payment plans as
+errors without checking their meaning.
 
 **Still open before fitting a model:** verify which expiry/outcome period each
 label release represents, who was eligible at prediction time, and which fields
@@ -157,9 +184,11 @@ its renewal-observation window to finish before the simulated model-fit date.
    automatically use `train.csv` to train and `train_v2.csv` to test without
    checking label maturity. Keep updated histories separate unless reconciliation
    is needed for the agreed dates.
-2. Build features: **one row per `(customer_id, prediction_date)`**, using only
-   information available before the start of that day. Reject duplicate keys,
-   keep labels and their availability dates separate, and document missing values.
+2. Review notebook 03's feature prototype: **one row per `(customer_id, prediction_date)`**,
+   with labels separate. Its functions exclude events on or after the requested
+   date and preserve unknown history. Supplied labels are saved with their source;
+   no outcome date or availability date is invented. Attach verified label periods
+   only after resolving step 1, and validate source availability before training.
 3. Train a logistic-regression baseline with mature labels and a justified time
    split. Fit preprocessing on training data; reserve a final test set. Evaluate
    ranking, probability quality and precision/recall at an agreed contact budget.
