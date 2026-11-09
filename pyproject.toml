@@ -12,6 +12,7 @@ dependencies = []
 [project.optional-dependencies]
 app = ["streamlit>=1.40,<2"]
 dev = ["ruff>=0.9,<1"]
+model = ["pandas>=2.2,<3", "scikit-learn>=1.6,<2"]
 notebooks = [
     "jupyterlab>=4,<5",
     "pandas>=2.2,<3",

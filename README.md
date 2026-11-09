@@ -1,8 +1,9 @@
 # Churn Retention AI
 
 A three-person project exploring subscription churn with KKBox data using Python
-and pandas. **EDA and a first feature prototype are available. No model, SHAP or
-LLM pipeline is implemented.**
+and pandas. **EDA, customer features and a first logistic regression baseline
+are available.** The baseline measures performance on held-out customers from
+the same March cohort. SHAP and the LLM pipeline remain future work.
 
 ## Start here
 
@@ -27,10 +28,13 @@ python -m pip install -e ".[notebooks]"
    distributions using notebook 01's cache and extracted labels.
 5. Run [03_features.ipynb](notebooks/03_features.ipynb) to build the 20,000-customer
    feature prototype. It starts with a synthetic example and keeps supplied labels
-   separate; label alignment must be verified before model training.
-6. Run [04_label_timeline.ipynb](notebooks/04_label_timeline.ipynb) to check which
-   expiry month each label file describes. It rebuilds labels with the provider's
-   rules from both transaction releases (about one minute with extracted CSVs).
+   separate.
+6. Review [04_label_timeline.ipynb](notebooks/04_label_timeline.ipynb) for the label
+   timeline. Rerun it only when rechecking the audit; it reads both transaction
+   releases to rebuild labels with the provider's rules.
+7. Install `python -m pip install -e ".[model]"` and run
+   [05_baseline.ipynb](notebooks/05_baseline.ipynb). It reuses notebook 03's saved
+   exports, so no raw data scan or notebook 04 rerun is needed for this baseline.
 
 The first notebook streams the original listening archive, avoiding a 30 GB
 extraction. Building the sampled history previously took about 15–20 minutes on
@@ -45,7 +49,7 @@ library, available on this Mac and standard Kaggle runtimes.
 | `notebooks/` | EDA and feature notebooks, with explanations beside the code |
 | `data/raw/` | Original downloads and their provenance records |
 | `data/processed/` | Generated summaries, figures, extracted CSV cache and sampled history |
-| `churn_retention/` | Customer features, provider label rules, synthetic demo and optional upload helper |
+| `churn_retention/` | Customer features, label rules, baseline model and optional tools |
 | `tests/` | Small synthetic checks that do not need competition data |
 
 Keep `data/processed/cohort_cache/` for the sampled listening history and manifest,
@@ -57,7 +61,10 @@ stay local/private and out of Git.
 Notebook 03 saves `customer_features.csv`, `supplied_labels_sample.csv` and
 `feature_metadata.json` directly under `data/processed/`. It streams original
 transactions without extracting another full CSV. Its metadata explicitly marks
-the output as **not ready for training** while label timing remains unverified.
+the output as **not ready for training** in a historical simulation. Notebook 05
+uses these exports for the retrospective experiment described below.
+It saves `baseline_split.csv` and aggregate `baseline_metrics.json` under
+`data/processed/`; keep the split fixed for later model comparisons.
 Notebook 03 section 5.2 compares each full source file's earliest/latest dates with
 the saved sample. The original downloads are unchanged; only the sample applies
 its customer/date filters. Keep `source_date_ranges.json` to avoid repeating the
@@ -96,8 +103,8 @@ used only for profile checks, not the saved sample or customer-history features.
 The competition's submission files are separate from our 20,000-customer sample.
 Their prediction column is a placeholder to replace with model probabilities,
 not ground-truth labels. They must not be used as labelled training data.
-No local training/validation/test split has been created yet (see notebook 04). Our 20,000-customer
-sample is development input; March activity files are history, not a test set.
+Notebook 05 splits the 20,000-customer sample into local training, validation and
+test sets. The March activity files are source history, not a labelled test set.
 
 For the current 1 March prototype, keep history strictly before 1 March. An
 April prediction would move the cutoff to 1 April and could use March history
@@ -185,30 +192,29 @@ errors without checking their meaning.
 (February history; kappa 0.66). The March match is weaker partly because renewals
 can fall in April, after the data ends. Each file's prediction date is the start
 of its expiry month: **1 February for `train.csv`, 1 March for `train_v2.csv`**.
-Notebook 03's 1 March cutoff therefore fits `train_v2.csv`. Never use 1 March with
-`train.csv`: 94% of its customers already show their renewal in February.
+This supports using notebook 03's 1 March cutoff with `train_v2.csv` for the
+baseline. For `train.csv`, 94% of the matched February customers in the audit
+already show a renewal before 1 March.
 
-**Decision: use `train_v2.csv` only.** The current 20,000-customer sample already
-comes from it, so no new sample is needed. Do not mix in `train.csv`: customers
-would appear twice with different dates and labels. Our sampled customers also
-under-represent February churners (1.7% versus 6.4% in the full file). Split the
-March cohort at random **by customer** into stratified training, validation and
-final test sets. This tests new customers in the same month, not a later month.
-A later-month check could use a fresh `train.csv` sample or rebuilt cohorts.
-**Still open:** whether features should add `transactions_v2.csv`'s extra
-pre-March events.
+**First baseline:** use `train_v2.csv` only, with the existing 20,000 customers and
+1 March features from the original listening and transaction histories. Split
+by customer with seed 42: **12,000 train / 4,000 validation / 4,000 test**.
+Stratification preserves the churn proportion. Fit imputation, scaling, category
+encoding and logistic regression on the training group. Compare log loss,
+average precision and ROC AUC with the constant training churn-rate reference.
 
-1. Create the customer-level training/validation/test split (notebook 04 section 6).
-2. Review notebook 03's feature prototype: **one row per `(customer_id, prediction_date)`**,
-   with labels separate. Its functions exclude events on or after the requested
-   date and preserve unknown history. Supplied labels are saved with their source;
-   no outcome date or availability date is invented. Validate source availability
-   before training.
-3. Train a logistic-regression baseline on the training customers; tune on
-   validation. Fit preprocessing on training data; reserve a final test set. Evaluate
-   ranking, probability quality and precision/recall at an agreed contact budget.
-4. Compare LightGBM, then add explanations and retention support if useful.
-   SHAP is not causal evidence; simulated value is not observed revenue saved.
+This experiment uses supplied outcomes after they are known. It does not claim
+a fitted model was available on 1 March. Earlier EDA informed feature choices on
+this cohort, so the test is an exploratory check on held-out customers from the
+same month. Some supplied labels cannot be rebuilt with the available history.
+Forward evaluation needs a later labelled cohort with observed outcomes and a fit
+date after the earlier training labels mature. `train.csv` is an earlier cohort.
+
+Next, compare renewal-only features with the listening additions on validation.
+Keep the test split fixed and reserve it for reporting. Verify source availability
+before adding the extra pre-March events in `transactions_v2.csv`. Then consider
+LightGBM and explanations. SHAP is not causal evidence; simulated value is not
+observed revenue saved.
 
 Future prediction records should include customer/date keys, churn probability,
 model version, a synthetic-data flag and drivers. Computed SHAP explanations must
@@ -224,7 +230,7 @@ Use `fix/` for corrections and `chore/` for maintenance. Explain the code and re
 agreed analysis changes here. Branch protection still needs to be configured.
 
 ```bash
-python -m pip install -e ".[notebooks,dev]"
+python -m pip install -e ".[notebooks,dev,model]"
 python -m unittest discover -s tests -v
 python -m churn_retention.demo
 python -m ruff check .
